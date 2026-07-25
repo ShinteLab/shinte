@@ -123,8 +123,12 @@ foreach ($d in "core","engine","suteme","prokishi","kicho") { Push-Location $d; 
   タグを打って `replace` を外す段階で再検討する。
 - clone 直後は `.\bootstrap.ps1` で 5 つを取得する（`-Verify` で build/test まで流す）。
   **replace が相対パス指定なので、5 つはこのディレクトリ直下に並んでいる必要がある。**
-- `_org-github/` は org プロフィール（`ShinteLab/.github` の `profile/README.md`）の
-  下書き置き場。別リポジトリとして切り出す前提で、ここでは追跡していない。
+- `_org-github/` は **`ShinteLab/.github`（org プロフィール）の作業コピー**。
+  `.gitignore` で除外した中に独立したリポジトリが入っている形で、5 つのサブプロジェクトと
+  扱いは同じ。`profile/README.md` が `github.com/ShinteLab` のトップに表示される。
+  **ディレクトリ名を `.github` にしないこと。** このワークスペースの `.gitignore` は
+  `!.github` で `.github` を追跡対象に戻すため、org 用のファイルを `shinte` 側が
+  自分の community health ファイルとして拾ってしまう。
 
 ## 開発上の約束
 
