@@ -1,0 +1,18 @@
+# サブプロジェクトはそれぞれ独立したリポジトリ（github.com/ShinteLab/<名前>）。
+# このワークスペースリポジトリは追跡しない。bootstrap.ps1 で clone する。
+/core/
+/engine/
+/kicho/
+/prokishi/
+/suteme/
+
+# ShinteLab/.github（org プロフィール）の下書き置き場。別リポジトリとして切り出す。
+/_org-github/
+
+# ドットディレクトリは追跡しない（各サブリポジトリの .gitignore と同じ方針）
+.*
+!.gitignore
+!.github
+
+# 作業物
+*.exe
