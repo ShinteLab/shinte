@@ -14,8 +14,11 @@ shinte/          （ここ自体はモジュールではない。go.mod は無�
 ├── engine/         PureGo 将棋エンジン（bitboard・合法手生成・探索・USI）
 ├── prokishi/       USI をクライアント/サーバに分離する gRPC プロキシ
 ├── suteme/         盤画像 → SFEN の画像認識
-└── kicho/          棋帳。棋譜の取得・保存・配信（Wails3 アプリ）
+├── kicho/          棋帳。棋譜の取得・保存・配信（Wails3 アプリ）
+└── ikkyoku/        一局。中継画面の盤面をキャプチャする入口（Wails3 アプリ）
 ```
+
+`ikkyoku` の構想全体（Phase 0〜6）はルートの `TODO.md` にある。**触る前に読むこと。**
 
 各サブディレクトリに個別の CLAUDE.md がある。そのディレクトリで作業するときは
 まずそちらを読むこと。
@@ -27,6 +30,7 @@ shinte/          （ここ自体はモジュールではない。go.mod は無�
 | `prokishi/` | `github.com/ShinteLab/prokishi` ほか (`api`,`client`,`db`,`registry`,`server`,`usi`) | Go ライブラリ + CLI + Wails3 アプリ |
 | `suteme/` | `github.com/ShinteLab/suteme`, `github.com/ShinteLab/suteme/training` | Go ライブラリ + 学習用 Web サーバ |
 | `kicho/` | `github.com/ShinteLab/kicho` ほか (`scrape`,`store`,`httpapi`,`settings`) | Go ライブラリ + Wails3 アプリ |
+| `ikkyoku/` | `github.com/ShinteLab/ikkyoku` | Go ライブラリ + Wails3 アプリ |
 
 ## 依存の方向（重要）
 
@@ -35,6 +39,9 @@ engine ─┐
 suteme ─┼→ core (sfen / usi / kifu)   Go: 仕様は core に集約、逆参照はしない
 kicho  ─┘
 prokishi                              現状 core への Go 依存は無し（フロントのみ @shinte/web を使う）
+
+ikkyoku → suteme → core               将来。現状 ikkyoku は画面キャプチャのみで依存なし
+ikkyoku → engine                      将来。解析を直接呼ぶ（prokishi は任意）
 
 prokishi(React) ─┐
 suteme(素HTML)  ─┼→ core/web (@shinte/web)   フロント: 盤描画・SFEN/USI/KIF ロジック
@@ -71,7 +78,7 @@ foreach ($d in "core","engine","suteme","prokishi","kicho") { Push-Location $d; 
 
 ## モジュール構成の注意点
 
-- モジュールは **5 つ + Wails3 アプリの 2 つ**、計 7 つ。
+- モジュールは **6 つ + Wails3 アプリの 3 つ**、計 9 つ。
 
   | モジュールパス | 場所 |
   |---|---|
@@ -80,8 +87,10 @@ foreach ($d in "core","engine","suteme","prokishi","kicho") { Push-Location $d; 
   | `github.com/ShinteLab/suteme` | `suteme/` |
   | `github.com/ShinteLab/prokishi` | `prokishi/` |
   | `github.com/ShinteLab/kicho` | `kicho/` |
+  | `github.com/ShinteLab/ikkyoku` | `ikkyoku/` |
   | `prokishi-server` | `prokishi/_cmd/prokishi-server/`（Wails3, alpha.98） |
   | `kicho-app` | `kicho/_cmd/kicho/`（Wails3, alpha2.117） |
+  | `ikkyoku-app` | `ikkyoku/_cmd/ikkyoku/`（Wails3, **beta.3**） |
 
 - **モジュール間はすべて `replace` で相対パス参照している。** タグを打って
   proxy 経由で引く運用に切り替えるまでは、この replace を外さないこと。
@@ -92,10 +101,24 @@ foreach ($d in "core","engine","suteme","prokishi","kicho") { Push-Location $d; 
   kicho/go.mod                         replace .../core => ../core
   kicho/_cmd/kicho/go.mod              replace .../core => ../../../core, .../kicho => ../../
   prokishi/_cmd/prokishi-server/go.mod replace .../prokishi => ../../
+  ikkyoku/_cmd/ikkyoku/go.mod          replace .../ikkyoku => ../../
   ```
 
-- Wails3 アプリ 2 つの**バージョンが揃っていない。** 手元の CLI は alpha2.117 なので
-  kicho はそれに合わせてある。prokishi を触るときはバージョン差に注意すること
+- Wails3 アプリ 3 つの**バージョンが揃っていない。3 つとも別々。**
+
+  | アプリ | Wails3 |
+  |---|---|
+  | `prokishi-server` | alpha.98 |
+  | `kicho-app` | alpha2.117 |
+  | `ikkyoku-app` | **beta.3**（手元の CLI がこれ） |
+
+  **手元の `wails3` CLI は beta.3。** 以前このファイルに書いていた alpha2.117 は古い情報で、
+  2026-08-04 時点で beta.3 に上がっている。`.claude/skills/wails3` も alpha2.117 前提のまま
+  なので、スキルの記述と実際の API が食い違う場合がある（**実際に確認した beta.3 の差分**:
+  透過は `application.WindowsWindow{BackgroundType:...}` ではなく
+  `WebviewWindowOptions` のトップレベルの `BackgroundType` / `BackgroundColour`。
+  また `wails3 init -t vanilla` が壊れていて `-t` を無視して React を生成する）。
+  kicho / prokishi を触るときはバージョン差に注意すること
   （alpha2.117 では `app.Window.NewWithOptions` など API 名が変わっている）。
   ビルドには frontend のビルドが別途必要（`npm install` → `wails3 build`）。
 - `_cmd` / `_samples` / `_dist` / `_work` などアンダースコア始まりのディレクトリは
@@ -112,17 +135,19 @@ foreach ($d in "core","engine","suteme","prokishi","kicho") { Push-Location $d; 
 
 **1 ディレクトリ = 1 リポジトリ**（`github.com/ShinteLab/<ディレクトリ名>`）。
 ルートも `ShinteLab/shinte` という**ワークスペースリポジトリ**だが、
-`.gitignore` で 5 つのサブディレクトリを除外しているので、追跡しているのは
-このファイル・`README.md`・`bootstrap.ps1` だけ。
+`.gitignore` で 6 つのサブディレクトリを除外しているので、追跡しているのは
+このファイル・`README.md`・`TODO.md`・`bootstrap.ps1` だけ。
 
 **git 操作は必ず対象サブプロジェクトのディレクトリで実行すること。**
-ルートで `git add -A` しても 5 つは無視される（意図した挙動。取りこぼしではない）。
+ルートで `git add -A` しても 6 つは無視される（意図した挙動。取りこぼしではない）。
 
-- submodule は使っていない。5 つを跨いで同時に編集するため、
+- submodule は使っていない。6 つを跨いで同時に編集するため、
   サブリポジトリを commit するたびにポインタ更新の commit が要る構成は割に合わない。
   タグを打って `replace` を外す段階で再検討する。
-- clone 直後は `.\bootstrap.ps1` で 5 つを取得する（`-Verify` で build/test まで流す）。
-  **replace が相対パス指定なので、5 つはこのディレクトリ直下に並んでいる必要がある。**
+- clone 直後は `.\bootstrap.ps1` で 6 つを取得する（`-Verify` で build/test まで流す）。
+  **replace が相対パス指定なので、6 つはこのディレクトリ直下に並んでいる必要がある。**
+  なお `ikkyoku` は**まだ GitHub にリポジトリを作っていない**ので、bootstrap は
+  clone に失敗する。作成するまではローカルのみ。
 - `_org-github/` は **`ShinteLab/.github`（org プロフィール）の作業コピー**。
   `.gitignore` で除外した中に独立したリポジトリが入っている形で、5 つのサブプロジェクトと
   扱いは同じ。`profile/README.md` が `github.com/ShinteLab` のトップに表示される。

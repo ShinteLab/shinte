@@ -3,11 +3,11 @@
     shinte ワークスペースのサブプロジェクトを clone する。
 
 .DESCRIPTION
-    core / engine / suteme / prokishi / kicho は github.com/ShinteLab/<名前> の
+    core / engine / suteme / prokishi / kicho / ikkyoku は github.com/ShinteLab/<名前> の
     独立したリポジトリで、このワークスペースリポジトリでは追跡していない。
     このスクリプトは未取得のものだけを clone する（既にあるものは触らない）。
 
-    モジュール間の参照は replace の相対パス指定なので、5 つとも
+    モジュール間の参照は replace の相対パス指定なので、6 つとも
     このスクリプトの隣に並んでいる必要がある。
 
 .EXAMPLE
@@ -27,7 +27,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $org = 'ShinteLab'
-$projects = 'core', 'engine', 'suteme', 'prokishi', 'kicho'
+$projects = 'core', 'engine', 'suteme', 'prokishi', 'kicho', 'ikkyoku'
 $root = $PSScriptRoot
 
 foreach ($p in $projects) {
